@@ -64,7 +64,7 @@ export default async function BrandsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              brands.map((brand) => (
+              brands.map((brand: any) => (
                 <TableRow key={brand.id}>
                   <TableCell className="font-medium">{brand.name}</TableCell>
                   <TableCell>{brand.description || 'No description'}</TableCell>

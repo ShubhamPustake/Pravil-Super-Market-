@@ -334,7 +334,7 @@ export default async function Dashboard() {
               <p className="text-sm text-muted-foreground text-center py-8">No sales recorded yet.</p>
             ) : (
               <div className="space-y-3">
-                {recentSales.map((sale) => (
+                {recentSales.map((sale: any) => (
                   <div key={sale.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate max-w-[160px]">

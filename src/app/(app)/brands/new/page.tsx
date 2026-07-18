@@ -45,7 +45,7 @@ export default async function NewBrandPage() {
             <p className="text-xs text-muted-foreground mb-2">Select which categories this brand produces items for.</p>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {categories.map((category) => (
+              {categories.map((category: any) => (
                 <div key={category.id} className="flex items-center space-x-2">
                   <input
                     type="checkbox"

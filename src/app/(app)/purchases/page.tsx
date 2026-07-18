@@ -61,7 +61,7 @@ export default async function PurchasesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              purchases.map((purchase) => (
+              purchases.map((purchase: any) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="font-medium">
                     {new Date(purchase.purchaseDate).toLocaleDateString()}

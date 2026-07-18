@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
-            {navItems.map((item) => {
+            {navItems.map((item: any) => {
               const Icon = item.icon
               return (
                 <li key={item.name}>

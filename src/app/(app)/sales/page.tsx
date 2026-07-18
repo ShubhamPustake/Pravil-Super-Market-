@@ -60,7 +60,7 @@ export default async function SalesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              sales.map((sale) => (
+              sales.map((sale: any) => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">
                     {new Date(sale.saleDate).toLocaleString()}

@@ -58,7 +58,7 @@ export default async function InventoryPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              inventory.map((inv) => {
+              inventory.map((inv: any) => {
                 const isLowStock = inv.availableStock <= inv.product.minimumStock
                 const isOutOfStock = inv.availableStock === 0
 
