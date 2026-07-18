@@ -39,7 +39,7 @@ export async function createSale(data: {
           paymentMethod: data.paymentMethod,
           notes: data.notes,
           items: {
-            create: data.items.map(item => ({
+            create: data.items.map((item: any) => ({
               productId: item.productId,
               quantity: item.quantity,
               sellingPrice: item.sellingPrice,

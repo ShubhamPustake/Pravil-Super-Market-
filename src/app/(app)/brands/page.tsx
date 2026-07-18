@@ -71,7 +71,7 @@ export default async function BrandsPage() {
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
                       {brand.categories.length === 0 && <span className="text-muted-foreground text-xs">None</span>}
-                      {brand.categories.map(cat => (
+                      {brand.categories.map((cat: any) => (
                         <span key={cat.id} className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400">
                           {cat.name}
                         </span>

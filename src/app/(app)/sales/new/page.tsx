@@ -31,7 +31,7 @@ function ProductSearch({ products, value, onChange }: { products: Product[], val
       {open && (
         <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
           {filtered.length === 0 ? <div className="p-2 text-sm text-muted-foreground">No products found.</div> : null}
-          {filtered.map(p => {
+          {filtered.map((p: any) => {
             const stock = p.inventory?.availableStock || 0
             const disabled = stock <= 0
             return (
@@ -178,7 +178,7 @@ export default function POSPage() {
                       />
                       {selectedProduct && selectedProduct.category && ['pulses', 'rice', 'wheat', 'rava', 'poha'].some(c => selectedProduct.category!.name.toLowerCase().includes(c)) && (
                         <div className="flex flex-wrap gap-1 mt-2 max-w-[120px]">
-                          {[50, 100, 250, 500, 750, 1000].map(weight => {
+                          {[50, 100, 250, 500, 750, 1000].map((weight: any) => {
                             const isKgBase = selectedProduct.unit?.toLowerCase() === 'kg'
                             const qtyValue = isKgBase ? weight / 1000 : weight
                             return (

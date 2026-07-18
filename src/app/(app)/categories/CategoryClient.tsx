@@ -210,7 +210,7 @@ export default function CategoryClient({ initialCategories }: { initialCategorie
                     {/* Expanded subcategory rows */}
                     {isExpanded && (
                       <>
-                        {category.subCategories.map(sub => (
+                        {category.subCategories.map((sub: any) => (
                           <TableRow key={sub.id} className="bg-slate-50/50 dark:bg-slate-800/20">
                             <TableCell></TableCell>
                             <TableCell className="pl-8 text-sm text-muted-foreground">

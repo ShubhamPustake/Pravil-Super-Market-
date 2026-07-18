@@ -116,13 +116,13 @@ export default async function Dashboard() {
   const lowStockNumber = Number(lowStockCount[0]?.count || 0)
 
   // Fetch product names for top selling
-  const topProductIds = topSellingItems.map(i => i.productId)
+  const topProductIds = topSellingItems.map((i: any) => i.productId)
   const topProducts = topProductIds.length > 0 ? await prisma.product.findMany({
     where: { id: { in: topProductIds } },
     select: { id: true, name: true, unit: true }
   }) : []
 
-  const topSelling = topSellingItems.map(item => {
+  const topSelling = topSellingItems.map((item: any) => {
     const product = topProducts.find(p => p.id === item.productId)
     return {
       name: product?.name || 'Unknown',
@@ -270,7 +270,7 @@ export default async function Dashboard() {
               {lowStockItems.length > 0 && (
                 <div className="mt-2 space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lowest Stock Items</p>
-                  {lowStockItems.map(inv => (
+                  {lowStockItems.map((inv: any) => (
                     <div key={inv.id} className="flex items-center justify-between text-sm">
                       <span className="truncate max-w-[180px]">{inv.product.name}</span>
                       <span className="font-mono text-xs font-bold text-amber-600">{inv.availableStock.toFixed(0)} left</span>
@@ -338,7 +338,7 @@ export default async function Dashboard() {
                   <div key={sale.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate max-w-[160px]">
-                        {sale.items.map(i => i.product.name).join(', ')}
+                        {sale.items.map((i: any) => i.product.name).join(', ')}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {new Date(sale.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}

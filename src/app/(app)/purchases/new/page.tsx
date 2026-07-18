@@ -163,7 +163,7 @@ export default function NewPurchasePage() {
             <Label htmlFor="supplierId">Supplier *</Label>
             <select id="supplierId" name="supplierId" required className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm">
               <option value="">Select Supplier</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
@@ -216,7 +216,7 @@ export default function NewPurchasePage() {
                           }}
                         >
                           <option value="">Select Product</option>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         {item.unmatchedName && !item.productId && (
                           <Button 
@@ -370,14 +370,14 @@ export default function NewPurchasePage() {
                   <Label>Category *</Label>
                   <select name="categoryId" required className="flex h-10 w-full rounded-md border border-input px-3 py-2 text-sm bg-transparent">
                     <option value="">Select Category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="grid gap-2">
                   <Label>Brand</Label>
                   <select name="brandId" className="flex h-10 w-full rounded-md border border-input px-3 py-2 text-sm bg-transparent">
                     <option value="">No Brand</option>
-                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
               </div>

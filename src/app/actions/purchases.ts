@@ -31,7 +31,7 @@ export async function createPurchase(data: {
         transportCost: data.transportCost,
         discount: data.discount,
         items: {
-          create: data.items.map(item => ({
+          create: data.items.map((item: any) => ({
             productId: item.productId,
             quantity: item.quantity,
             purchasePrice: item.purchasePrice,
