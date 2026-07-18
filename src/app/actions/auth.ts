@@ -1,6 +1,6 @@
 "use server"
 
-import { signIn } from "@/auth"
+import { signIn, signOut } from "@/auth"
 import { AuthError } from "next-auth"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
@@ -25,9 +25,11 @@ export async function loginUser(prevState: any, formData: FormData) {
     throw error
   }
   
-  // Successfully signed in, redirect to store
-  redirect("/")
+  // Successfully signed in, redirect to dashboard
+  redirect("/dashboard")
 }
+
+
 
 export async function registerUser(prevState: any, formData: FormData) {
   try {

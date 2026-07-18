@@ -1,361 +1,104 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Banknote, ShoppingCart, PackageOpen, AlertTriangle, TrendingUp, TrendingDown, IndianRupee, Truck, Tags, ArrowUpRight, ArrowDownRight } from "lucide-react"
-import prisma from "@/lib/prisma"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { ShoppingBag, ArrowRight, Package, Banknote, Users, BarChart3 } from "lucide-react"
 
-export default async function Dashboard() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  
-  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59)
-  
-  // Run all queries in parallel for performance
-  const [
-    todaySalesAgg,
-    todaySalesCount,
-    yesterdaySalesAgg,
-    monthSalesAgg,
-    lastMonthSalesAgg,
-    monthPurchasesAgg,
-    totalProducts,
-    totalCategories,
-    totalSuppliers,
-    lowStockItems,
-    outOfStockCount,
-    recentSales,
-    topSellingItems,
-  ] = await Promise.all([
-    // Today's revenue
-    prisma.sale.aggregate({
-      where: { createdAt: { gte: today } },
-      _sum: { totalAmount: true },
-    }),
-    // Today's order count
-    prisma.sale.count({
-      where: { createdAt: { gte: today } },
-    }),
-    // Yesterday's revenue (for comparison)
-    prisma.sale.aggregate({
-      where: { createdAt: { gte: yesterday, lt: today } },
-      _sum: { totalAmount: true },
-    }),
-    // This month's revenue
-    prisma.sale.aggregate({
-      where: { createdAt: { gte: thisMonthStart } },
-      _sum: { totalAmount: true },
-    }),
-    // Last month's revenue (for comparison)
-    prisma.sale.aggregate({
-      where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
-      _sum: { totalAmount: true },
-    }),
-    // This month's purchases (cost)
-    prisma.purchase.aggregate({
-      where: { createdAt: { gte: thisMonthStart } },
-      _sum: { totalCost: true },
-    }),
-    // Product counts
-    prisma.product.count(),
-    prisma.category.count(),
-    prisma.supplier.count(),
-    // Low stock (below minimum)
-    prisma.inventory.findMany({
-      where: {
-        product: { isActive: true },
-        availableStock: { gt: 0 },
-      },
-      include: { product: true },
-      orderBy: { availableStock: 'asc' },
-      take: 5,
-    }),
-    // Out of stock
-    prisma.inventory.count({
-      where: { availableStock: { lte: 0 } },
-    }),
-    // Recent sales
-    prisma.sale.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      include: {
-        items: {
-          include: { product: true },
-          take: 3,
-        }
-      }
-    }),
-    // Top selling items this month
-    prisma.saleItem.groupBy({
-      by: ['productId'],
-      where: { sale: { createdAt: { gte: thisMonthStart } } },
-      _sum: { quantity: true, finalPrice: true },
-      orderBy: { _sum: { finalPrice: 'desc' } },
-      take: 5,
-    }),
-  ])
-
-  const todayRevenue = todaySalesAgg._sum.totalAmount || 0
-  const yesterdayRevenue = yesterdaySalesAgg._sum.totalAmount || 0
-  const monthRevenue = monthSalesAgg._sum.totalAmount || 0
-  const lastMonthRevenue = lastMonthSalesAgg._sum.totalAmount || 0
-  const monthPurchases = monthPurchasesAgg._sum.totalCost || 0
-  const monthProfit = monthRevenue - monthPurchases
-
-  // Calculate percentage changes
-  const dailyChange = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100) : 0
-  const monthlyChange = lastMonthRevenue > 0 ? ((monthRevenue - lastMonthRevenue) / lastMonthRevenue * 100) : 0
-
-  // Low stock count (items below their own minimum stock)
-  const lowStockCount = await prisma.$queryRawUnsafe<{count: bigint}[]>(
-    `SELECT COUNT(*) as count FROM "Inventory" i JOIN "Product" p ON i."productId" = p."id" WHERE i."availableStock" > 0 AND i."availableStock" <= p."minimumStock" AND p."isActive" = true`
-  )
-  const lowStockNumber = Number(lowStockCount[0]?.count || 0)
-
-  // Fetch product names for top selling
-  const topProductIds = topSellingItems.map(i => i.productId)
-  const topProducts = topProductIds.length > 0 ? await prisma.product.findMany({
-    where: { id: { in: topProductIds } },
-    select: { id: true, name: true, unit: true }
-  }) : []
-
-  const topSelling = topSellingItems.map(item => {
-    const product = topProducts.find(p => p.id === item.productId)
-    return {
-      name: product?.name || 'Unknown',
-      unit: product?.unit || 'pcs',
-      qty: item._sum.quantity || 0,
-      revenue: item._sum.finalPrice || 0,
-    }
-  })
-
+export default function LandingPage() {
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back to Pravil Supermarket ERP.
-        </p>
-      </div>
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Navigation */}
+      <header className="flex h-16 items-center justify-between px-6 lg:px-12 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <div className="bg-green-600 p-2 rounded-xl text-white">
+            <ShoppingBag className="h-5 w-5" />
+          </div>
+          <span className="text-xl font-bold text-slate-900 dark:text-white">
+            Pravil<span className="text-green-600">ERP</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/login">
+            <Button variant="ghost" className="hidden sm:inline-flex">Sign in</Button>
+          </Link>
+          <Link href="/login">
+            <Button className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6">
+              Go to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </header>
 
-      {/* Row 1: Primary KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Revenue</CardTitle>
-            <IndianRupee className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{todayRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-            <p className={`text-xs flex items-center gap-1 mt-1 ${dailyChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {dailyChange >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              {dailyChange >= 0 ? '+' : ''}{dailyChange.toFixed(1)}% vs yesterday
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todaySalesCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Completed transactions today
-            </p>
-          </CardContent>
-        </Card>
+      {/* Hero Section */}
+      <main className="flex-1">
+        <section className="relative px-6 lg:px-12 py-20 lg:py-32 overflow-hidden flex flex-col items-center text-center">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-green-500/10 dark:bg-green-500/5 blur-[120px] rounded-full -z-10" />
+          
+          <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-4xl mb-6">
+            The intelligent OS for <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-400">
+              Modern Supermarkets
+            </span>
+          </h1>
+          
+          <p className="text-lg lg:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mb-10">
+            Manage inventory, process sales, and track analytics in real-time with an ERP designed specifically for high-volume retail.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white h-14 px-8 rounded-full text-lg shadow-xl shadow-green-600/20">
+                Access Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="https://github.com/shubham-pustake" target="_blank" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full h-14 px-8 rounded-full text-lg border-slate-300 dark:border-slate-700">
+                View Documentation
+              </Button>
+            </Link>
+          </div>
+          
+          {/* Dashboard Preview Image */}
+          <div className="mt-16 w-full max-w-5xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2 relative">
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-transparent to-transparent z-10 rounded-2xl pointer-events-none" />
+            <img 
+              src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=2000" 
+              alt="Dashboard Preview" 
+              className="w-full h-auto rounded-xl opacity-80 mix-blend-luminosity hover:mix-blend-normal transition-all duration-700"
+            />
+          </div>
+        </section>
 
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{monthRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-            <p className={`text-xs flex items-center gap-1 mt-1 ${monthlyChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {monthlyChange >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              {monthlyChange >= 0 ? '+' : ''}{monthlyChange.toFixed(1)}% vs last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Profit</CardTitle>
-            <Banknote className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${monthProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₹{monthProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        {/* Features Section */}
+        <section className="px-6 lg:px-12 py-20 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Everything you need to run your store</h2>
+              <p className="text-slate-500 max-w-2xl mx-auto">Purpose-built tools to handle the complexity of inventory management, sales, and vendor relations.</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Revenue − Purchases this month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 2: Secondary KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-            <PackageOpen className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalProducts}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active in catalog</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
-            <Tags className="h-4 w-4 text-teal-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCategories}</div>
-            <p className="text-xs text-muted-foreground mt-1">Product categories</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suppliers</CardTitle>
-            <Truck className="h-4 w-4 text-indigo-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalSuppliers}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active suppliers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Purchases</CardTitle>
-            <TrendingDown className="h-4 w-4 text-rose-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{monthPurchases.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-1">Cost this month</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 3: Stock Alerts + Top Selling + Recent Sales */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Stock Alerts */}
-        <Card className={outOfStockCount > 0 || lowStockNumber > 0 ? 'border-red-200 dark:border-red-900/50' : ''}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              Stock Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/20">
-                <span className="text-sm font-medium">Out of Stock</span>
-                <span className="text-lg font-bold text-red-600">{outOfStockCount}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20">
-                <span className="text-sm font-medium">Low Stock</span>
-                <span className="text-lg font-bold text-amber-600">{lowStockNumber}</span>
-              </div>
-              {lowStockItems.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lowest Stock Items</p>
-                  {lowStockItems.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate max-w-[180px]">{inv.product.name}</span>
-                      <span className="font-mono text-xs font-bold text-amber-600">{inv.availableStock.toFixed(0)} left</span>
-                    </div>
-                  ))}
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {[
+                { icon: Package, title: "Smart Inventory", desc: "Track stock levels in real-time with low-stock alerts and subcategory organization." },
+                { icon: Banknote, title: "Fast POS System", desc: "Process transactions quickly with a responsive Point of Sale interface." },
+                { icon: Users, title: "Supplier Management", desc: "Keep track of vendors, wholesale purchases, and restock histories easily." },
+                { icon: BarChart3, title: "Live Analytics", desc: "Make data-driven decisions with real-time revenue and profit dashboards." }
+              ].map((feat, i) => (
+                <div key={i} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:shadow-lg transition-all">
+                  <div className="bg-green-100 dark:bg-green-900/30 w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-green-600 dark:text-green-400">
+                    <feat.icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{feat.title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{feat.desc}</p>
                 </div>
-              )}
-              <Link href="/inventory" className="block text-center text-xs text-green-600 hover:underline pt-1">
-                View Full Inventory →
-              </Link>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+      </main>
 
-        {/* Top Selling Products */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              Top Selling (This Month)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topSelling.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No sales data this month.</p>
-            ) : (
-              <div className="space-y-3">
-                {topSelling.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                        i === 1 ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                        'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <span className="text-sm truncate">{item.name}</span>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className="text-sm font-semibold">₹{item.revenue.toLocaleString('en-IN')}</div>
-                      <div className="text-xs text-muted-foreground">{item.qty} {item.unit}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Sales */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-blue-500" />
-              Recent Sales
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentSales.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No sales recorded yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentSales.map((sale) => (
-                  <div key={sale.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate max-w-[160px]">
-                        {sale.items.map(i => i.product.name).join(', ')}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(sale.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        {' · '}{sale.paymentMethod}
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-green-600 flex-shrink-0 ml-2">₹{sale.totalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
-                <Link href="/sales" className="block text-center text-xs text-green-600 hover:underline pt-1">
-                  View All Sales →
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Footer */}
+      <footer className="py-8 text-center text-slate-500 text-sm border-t border-slate-200 dark:border-slate-800">
+        <p>© {new Date().getFullYear()} Pravil Supermarket ERP. All rights reserved.</p>
+      </footer>
     </div>
   )
 }

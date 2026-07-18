@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 const sidebarLinks = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "POS Terminal", href: "/sales/new", icon: MonitorSmartphone },
   { name: "Products", href: "/products", icon: Package },
   { name: "Categories", href: "/categories", icon: Tags },
@@ -34,6 +34,11 @@ const sidebarLinks = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  
+  // Hide sidebar on landing and auth pages
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") {
+    return null
+  }
 
   return (
     <div className="flex h-screen flex-col border-r bg-slate-900 text-slate-300 w-64 shrink-0 transition-all duration-300">
