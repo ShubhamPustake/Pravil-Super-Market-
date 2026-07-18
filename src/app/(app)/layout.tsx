@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Fresh groceries delivered to your doorstep. Buy fresh dairy, bakery, snacks, and grocery essentials at the best prices.",
 }
 
+export const dynamic = "force-dynamic"
+
 export default function DashboardLayout({
   children,
 }: {
