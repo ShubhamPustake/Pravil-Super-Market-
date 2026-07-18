@@ -1,29 +1,50 @@
 "use client"
 
-import { User, Bell, Menu, LogOut } from "lucide-react"
+import { useState } from "react"
+import { User, Bell, Menu, LogOut, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { SidebarNav } from "./SidebarNav"
 
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 
 export function Header() {
   const pathname = usePathname()
+  const [open, setOpen] = useState(false)
 
   if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") {
     return null
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center border-b px-6 bg-background">
+    <header className="flex h-16 shrink-0 items-center border-b px-4 md:px-6 bg-background">
       <div className="flex items-center gap-4 lg:hidden">
-        <Button variant="ghost" size="icon" className="shrink-0">
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">Toggle Sidebar</span>
-        </Button>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle Sidebar</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0 bg-slate-900 border-r-slate-800 text-slate-300">
+            <div className="flex h-16 shrink-0 items-center border-b border-slate-800 px-6">
+              <SheetTitle className="flex items-center gap-2 font-bold text-xl text-white m-0">
+                <div className="bg-green-600 p-1.5 rounded-lg text-white">
+                  <Package className="h-5 w-5" />
+                </div>
+                Pravil ERP
+              </SheetTitle>
+            </div>
+            <div className="flex-1 overflow-auto py-4">
+              <SidebarNav onItemClick={() => setOpen(false)} />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
       
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-3 md:gap-4">
         <Button variant="ghost" size="icon" className="relative shrink-0">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-red-600"></span>
