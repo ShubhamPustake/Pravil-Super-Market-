@@ -57,7 +57,7 @@ export async function registerUser(prevState: any, formData: FormData) {
         name,
         email,
         password: hashedPassword,
-        role: "CUSTOMER",
+        role: "STAFF",
       }
     })
     

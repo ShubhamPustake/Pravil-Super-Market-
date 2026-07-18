@@ -8,7 +8,7 @@ export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { nextUrl } = req
   const isLoggedIn = !!req.auth
   const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth")

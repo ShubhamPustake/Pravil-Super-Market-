@@ -94,7 +94,7 @@ export default function POSPage() {
     })
 
     if (response && !response.success) {
-      setError(response.error)
+      setError((response as any).error || "An error occurred.")
     }
   }
 

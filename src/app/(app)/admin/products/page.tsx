@@ -7,7 +7,7 @@ export default async function AdminProductsPage() {
   const products = await prisma.product.findMany({
     include: {
       category: true,
-      stock: true
+      inventory: true
     },
     orderBy: { createdAt: 'desc' }
   })
