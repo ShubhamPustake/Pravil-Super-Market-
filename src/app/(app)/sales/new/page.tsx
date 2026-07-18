@@ -13,37 +13,65 @@ type Product = { id: string; name: string; sellingPrice: number; unit: string; c
 function ProductSearch({ products, value, onChange }: { products: Product[], value: string, onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const [focusedIndex, setFocusedIndex] = useState(0)
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
   const selected = products.find(p => p.id === value)
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault() // Stop form submission
+      if (open && filtered.length > 0) {
+        const p = filtered[focusedIndex]
+        const stock = p.inventory?.availableStock || 0
+        if (stock > 0) {
+          onChange(p.id)
+          setOpen(false)
+        }
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFocusedIndex(prev => (prev > 0 ? prev - 1 : 0))
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
 
   return (
     <div className="relative w-full">
       <Input 
         type="text" 
-        placeholder="Search by name..." 
+        placeholder="Search product..." 
         value={open ? search : (selected?.name || "")}
-        onChange={e => { setSearch(e.target.value); setOpen(true) }}
+        onChange={e => { setSearch(e.target.value); setOpen(true); setFocusedIndex(0); }}
         onFocus={() => { setOpen(true); setSearch("") }}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
+        onKeyDown={handleKeyDown}
         className="w-full h-9 text-sm"
       />
       {open && (
         <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
           {filtered.length === 0 ? <div className="p-2 text-sm text-muted-foreground">No products found.</div> : null}
-          {filtered.map((p: any) => {
+          {filtered.map((p: any, idx: number) => {
             const stock = p.inventory?.availableStock || 0
             const disabled = stock <= 0
             return (
               <div 
                 key={p.id}
-                className={`p-2 text-sm cursor-pointer border-b last:border-0 ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${p.id === value ? 'bg-slate-50 dark:bg-slate-800 font-medium' : ''}`}
-                onMouseDown={(e) => e.preventDefault()} // Prevent blur from firing before click
+                className={`p-2 text-sm cursor-pointer border-b last:border-0 
+                  ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} 
+                  ${focusedIndex === idx ? 'bg-slate-100 dark:bg-slate-800' : ''}
+                  ${p.id === value ? 'bg-slate-50 dark:bg-slate-800 font-medium' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   if (disabled) return
                   onChange(p.id)
                   setOpen(false)
                 }}
+                onMouseEnter={() => setFocusedIndex(idx)}
               >
                 <div>{p.name}</div>
                 <div className="text-xs text-muted-foreground">{stock} in stock</div>
@@ -176,29 +204,47 @@ export default function POSPage() {
                           setItems(newItems)
                         }}
                       />
-                      {selectedProduct && selectedProduct.category && ['pulses', 'rice', 'wheat', 'rava', 'poha'].some(c => selectedProduct.category!.name.toLowerCase().includes(c)) && (
-                        <div className="flex flex-wrap gap-1 mt-2 max-w-[120px]">
-                          {[50, 100, 250, 500, 750, 1000].map((weight: any) => {
-                            const isKgBase = selectedProduct.unit?.toLowerCase() === 'kg'
-                            const qtyValue = isKgBase ? weight / 1000 : weight
-                            return (
-                              <Button 
-                                key={weight}
-                                type="button" 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-6 px-1.5 text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                onClick={() => {
+                      {selectedProduct && selectedProduct.unit?.toLowerCase() === 'kg' && (
+                        <div className="mt-2 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              type="number"
+                              placeholder="Enter grams"
+                              className="h-7 text-xs w-24 bg-slate-50 dark:bg-slate-800"
+                              onChange={(e) => {
+                                const grams = parseFloat(e.target.value)
+                                if (!isNaN(grams) && grams > 0) {
+                                  const qtyValue = grams / 1000
                                   const newItems = [...items]
                                   newItems[index].quantity = qtyValue
                                   newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
                                   setItems(newItems)
-                                }}
-                              >
-                                {weight >= 1000 ? `${weight/1000}kg` : `${weight}g`}
-                              </Button>
-                            )
-                          })}
+                                }
+                              }}
+                            />
+                            <span className="text-xs text-muted-foreground font-medium">grams</span>
+                          </div>
+                          {['pulses', 'rice', 'wheat', 'rava', 'poha'].some(c => selectedProduct.category?.name.toLowerCase().includes(c)) && (
+                            <div className="flex flex-wrap gap-1">
+                              {[50, 100, 250, 500, 750].map((weight: any) => {
+                                const qtyValue = weight / 1000
+                                return (
+                                  <Button 
+                                    key={weight} type="button" variant="outline" size="sm" 
+                                    className="h-6 px-1.5 text-[10px] bg-slate-100 dark:bg-slate-800"
+                                    onClick={() => {
+                                      const newItems = [...items]
+                                      newItems[index].quantity = qtyValue
+                                      newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
+                                      setItems(newItems)
+                                    }}
+                                  >
+                                    {weight}g
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>
