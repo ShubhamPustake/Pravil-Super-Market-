@@ -23,8 +23,8 @@ export default async function StockAlertsPage() {
 
   // Filter items where available stock is less than or equal to minimum stock
   const alerts = lowStockItems.filter(
-    (item) => item.availableStock <= item.product.minimumStock
-  ).sort((a, b) => a.availableStock - b.availableStock) // Sort by most depleted first
+    (item: any) => item.availableStock <= item.product.minimumStock
+  ).sort((a: any, b: any) => a.availableStock - b.availableStock) // Sort by most depleted first
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,7 +70,7 @@ export default async function StockAlertsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              alerts.map((item) => {
+              alerts.map((item: any) => {
                 const isOutOfStock = item.availableStock === 0
 
                 return (
