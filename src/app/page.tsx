@@ -19,7 +19,7 @@ export default function LandingPage() {
           <Link href="/login">
             <Button variant="ghost" className="hidden sm:inline-flex">Sign in</Button>
           </Link>
-          <Link href="/login">
+          <Link href="/dashboard">
             <Button className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6">
               Go to Dashboard
             </Button>
@@ -44,7 +44,7 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <Link href="/login" className="w-full sm:w-auto">
+            <Link href="/dashboard" className="w-full sm:w-auto">
               <Button size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white h-14 px-8 rounded-full text-lg shadow-xl shadow-green-600/20">
                 Access Dashboard <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
