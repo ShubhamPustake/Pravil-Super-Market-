@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createSale } from "@/app/actions/sales"
+import { updateSale } from "@/app/actions/sales"
 import Link from "next/link"
 import { ArrowLeft, Plus, Trash2, ShoppingBag } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 type Product = { id: string; name: string; sellingPrice: number; unit: string; category?: { name: string }; inventory?: { availableStock: number }; bulkUnitName?: string; bulkConversionRate?: number }
 
@@ -20,14 +21,11 @@ function ProductSearch({ products, value, onChange }: { products: Product[], val
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault() // Stop form submission
+      e.preventDefault() 
       if (open && filtered.length > 0) {
         const p = filtered[focusedIndex]
-        const stock = p.inventory?.availableStock || 0
-        if (stock > 0) {
-          onChange(p.id)
-          setOpen(false)
-        }
+        onChange(p.id)
+        setOpen(false)
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -57,17 +55,14 @@ function ProductSearch({ products, value, onChange }: { products: Product[], val
           {filtered.length === 0 ? <div className="p-2 text-sm text-muted-foreground">No products found.</div> : null}
           {filtered.map((p: any, idx: number) => {
             const stock = p.inventory?.availableStock || 0
-            const disabled = stock <= 0
             return (
               <div 
                 key={p.id}
-                className={`p-2 text-sm cursor-pointer border-b last:border-0 
-                  ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} 
+                className={`p-2 text-sm cursor-pointer border-b last:border-0 hover:bg-slate-100 dark:hover:bg-slate-800 
                   ${focusedIndex === idx ? 'bg-slate-100 dark:bg-slate-800' : ''}
                   ${p.id === value ? 'bg-slate-50 dark:bg-slate-800 font-medium' : ''}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  if (disabled) return
                   onChange(p.id)
                   setOpen(false)
                 }}
@@ -84,11 +79,22 @@ function ProductSearch({ products, value, onChange }: { products: Product[], val
   )
 }
 
-export default function POSPage() {
+export default function EditSaleClient({ sale }: { sale: any }) {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
-  const [items, setItems] = useState([{ productId: "", quantity: 1, sellingPrice: 0, discount: 0, finalPrice: 0 }])
   const [error, setError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState("CASH")
+  
+  const initialItems = sale.items.map((i: any) => ({
+    productId: i.productId,
+    quantity: i.quantity,
+    sellingPrice: i.sellingPrice,
+    discount: i.discount,
+    finalPrice: i.finalPrice
+  }))
+  
+  const [items, setItems] = useState(initialItems)
+  const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetch('/api/products').then(res => res.json()).then(setProducts).catch(() => {})
@@ -104,17 +110,22 @@ export default function POSPage() {
     setItems(newItems)
   }
 
-  const calculateTotal = () => items.reduce((acc, item) => acc + item.finalPrice, 0)
+  const calculateTotal = () => items.reduce((acc: number, item: any) => acc + item.finalPrice, 0)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
+    setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     
-    const validItems = items.filter(i => i.productId !== "")
-    if (validItems.length === 0) return setError("Add at least one product.")
+    const validItems = items.filter((i: any) => i.productId !== "")
+    if (validItems.length === 0) {
+      setError("Add at least one product.")
+      setIsSubmitting(false)
+      return
+    }
 
-    const response = await createSale({
+    const response = await updateSale(sale.id, {
       totalAmount: calculateTotal() - (parseFloat(formData.get("globalDiscount") as string) || 0),
       discount: parseFloat(formData.get("globalDiscount") as string) || 0,
       paymentMethod: paymentMethod,
@@ -127,8 +138,9 @@ export default function POSPage() {
 
     if (response && !response.success) {
       setError((response as any).error || "An error occurred.")
+      setIsSubmitting(false)
     } else {
-      window.location.href = "/"
+      router.push('/')
     }
   }
 
@@ -141,8 +153,8 @@ export default function POSPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Point of Sale (POS)</h1>
-          <p className="text-muted-foreground">Record daily customer sales.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Sale #{sale.id.slice(-8)}</h1>
+          <p className="text-muted-foreground">Modify completed sale. Inventory will be automatically reconciled.</p>
         </div>
       </div>
 
@@ -174,7 +186,7 @@ export default function POSPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, index) => {
+                {items.map((item: any, index: number) => {
                   const selectedProduct = products.find(p => p.id === item.productId)
                   const availableStock = selectedProduct?.inventory?.availableStock || 0
                   
@@ -195,13 +207,13 @@ export default function POSPage() {
                       />
                       {selectedProduct && (
                         <p className="text-xs mt-1 text-muted-foreground">
-                          Available: <span className={`font-bold ${availableStock < item.quantity ? 'text-red-600' : 'text-green-600'}`}>{availableStock}</span>
+                          Current Stock: <span className="font-bold text-green-600">{availableStock}</span>
                         </p>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <Input 
-                        type="number" step="any" required min="0.001" max={availableStock || undefined}
+                        type="number" step="any" required min="0.001"
                         value={item.quantity === 0 ? '' : item.quantity}
                         onChange={(e) => {
                           const newItems = [...items]
@@ -310,7 +322,6 @@ export default function POSPage() {
                           const newItems = [...items]
                           const newFinalPrice = parseFloat(e.target.value) || 0
                           newItems[index].finalPrice = newFinalPrice
-                          // Reverse calculate the discount needed to achieve this final price
                           newItems[index].discount = (newItems[index].quantity * newItems[index].sellingPrice) - newFinalPrice
                           setItems(newItems)
                         }}
@@ -329,7 +340,7 @@ export default function POSPage() {
         </div>
 
         <div className="rounded-lg border bg-white dark:bg-slate-900 shadow-sm p-6 grid gap-6 md:grid-cols-2">
-          <h2 className="text-xl font-semibold md:col-span-2">Checkout</h2>
+          <h2 className="text-xl font-semibold md:col-span-2">Update Sale</h2>
           
           <div className="grid gap-2">
             <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -349,31 +360,31 @@ export default function POSPage() {
 
           <div className="grid gap-2">
             <Label htmlFor="globalDiscount">Additional Discount on Bill (₹)</Label>
-            <Input id="globalDiscount" name="globalDiscount" type="number" step="0.01" placeholder="0" />
+            <Input id="globalDiscount" name="globalDiscount" type="number" step="0.01" defaultValue={sale.discount || 0} />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="customerName">Customer Name {paymentMethod === "UDHAR" && "*"}</Label>
-            <Input id="customerName" name="customerName" required={paymentMethod === "UDHAR"} placeholder={paymentMethod === "UDHAR" ? "Required for Udhar" : "Optional customer name"} />
+            <Input id="customerName" name="customerName" required={paymentMethod === "UDHAR"} defaultValue={sale.customerName || ""} placeholder={paymentMethod === "UDHAR" ? "Required for Udhar" : "Optional customer name"} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="customerPhone">Customer Phone</Label>
-            <Input id="customerPhone" name="customerPhone" placeholder="Optional phone number" />
+            <Input id="customerPhone" name="customerPhone" defaultValue={sale.customerPhone || ""} placeholder="Optional phone number" />
           </div>
 
           <div className={`grid gap-2 ${paymentMethod === "UDHAR" ? 'md:col-span-2' : 'md:col-span-2'}`}>
             <Label htmlFor="notes">Notes (Optional)</Label>
-            <Input id="notes" name="notes" placeholder="Customer details or remarks" />
+            <Input id="notes" name="notes" defaultValue={sale.notes || ""} />
           </div>
 
-          <div className="md:col-span-2 flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900 rounded-lg mt-2">
+          <div className="md:col-span-2 flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900 rounded-lg mt-2">
             <span className="text-xl font-medium">Grand Total:</span>
-            <span className="text-3xl font-bold text-green-700 dark:text-green-500">₹{calculateTotal().toFixed(2)}</span>
+            <span className="text-3xl font-bold text-blue-700 dark:text-blue-500">₹{calculateTotal().toFixed(2)}</span>
           </div>
 
           <div className="md:col-span-2 mt-2">
-            <Button type="submit" className="w-full md:w-auto md:float-right h-12 px-8 text-lg bg-green-600 hover:bg-green-700">
-              Complete Sale
+            <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto md:float-right h-12 px-8 text-lg bg-blue-600 hover:bg-blue-700 text-white">
+              {isSubmitting ? "Updating..." : "Save Changes"}
             </Button>
           </div>
         </div>

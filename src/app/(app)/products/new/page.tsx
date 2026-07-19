@@ -91,7 +91,7 @@ export default async function NewProductPage() {
               <option value="g">Grams (g)</option>
               <option value="L">Liters (L)</option>
               <option value="box">Box</option>
-              <option value="pack">Pack</option>
+              <option value="katta">Katta</option>
             </select>
           </div>
 
@@ -113,6 +113,16 @@ export default async function NewProductPage() {
           <div className="grid gap-2">
             <Label htmlFor="minimumStock">Minimum Stock Alert Level</Label>
             <Input type="number" step="any" id="minimumStock" name="minimumStock" defaultValue="10" />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="bulkUnitName">Bulk Packaging Name (e.g. Katta, Box)</Label>
+            <Input id="bulkUnitName" name="bulkUnitName" placeholder="Leave blank if none" />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="bulkConversionRate">Items/Weight per Bulk</Label>
+            <Input type="number" step="any" id="bulkConversionRate" name="bulkConversionRate" placeholder="e.g. 30" />
           </div>
 
           <div className="grid gap-2">

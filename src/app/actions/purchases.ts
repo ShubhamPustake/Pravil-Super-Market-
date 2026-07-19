@@ -78,5 +78,51 @@ export async function createPurchase(data: {
   revalidatePath("/purchases")
   revalidatePath("/inventory")
   revalidatePath("/")
-  redirect("/purchases")
+  redirect("/")
+}
+
+export async function deletePurchase(purchaseId: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const purchase = await tx.purchase.findUnique({
+        where: { id: purchaseId },
+        include: { items: true }
+      })
+      if (!purchase) throw new Error("Purchase not found")
+
+      // Revert Inventory and create StockMovement logs
+      for (const item of purchase.items) {
+        await tx.inventory.update({
+          where: { productId: item.productId },
+          data: {
+            availableStock: {
+              decrement: item.quantity
+            }
+          }
+        })
+
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            type: "OUT",
+            quantity: item.quantity,
+            reference: `REVERT_PURCHASE-${purchase.id}`
+          }
+        })
+      }
+
+      // Delete the Purchase (PurchaseItems will be deleted via Cascade)
+      await tx.purchase.delete({
+        where: { id: purchaseId }
+      })
+    })
+
+    revalidatePath("/purchases")
+    revalidatePath("/inventory")
+    revalidatePath("/")
+    
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message || "Failed to delete purchase" }
+  }
 }

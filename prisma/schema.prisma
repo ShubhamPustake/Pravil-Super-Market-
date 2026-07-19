@@ -69,8 +69,10 @@ model Product {
   purchasePrice  Float
   sellingPrice   Float
   gst            Float           @default(0)
-  unit           String
-  minimumStock   Float           @default(10)
+  unit               String
+  bulkUnitName       String?
+  bulkConversionRate Float?
+  minimumStock       Float           @default(10)
   maximumStock   Float           @default(1000)
   expiryDate     DateTime?
   supplierId     String?
@@ -124,6 +126,9 @@ model Sale {
   totalAmount   Float
   discount      Float      @default(0)
   paymentMethod String
+  customerName  String?
+  customerPhone String?
+  status        String     @default("PAID")
   notes         String?
   items         SaleItem[]
   createdAt     DateTime   @default(now())

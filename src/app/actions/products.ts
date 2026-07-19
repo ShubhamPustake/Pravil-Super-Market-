@@ -17,6 +17,8 @@ export async function createProduct(formData: FormData) {
   const unit = formData.get("unit") as string
   const minimumStock = parseFloat(formData.get("minimumStock") as string) || 10
   const maximumStock = parseFloat(formData.get("maximumStock") as string) || 1000
+  const bulkUnitName = formData.get("bulkUnitName") as string || null
+  const bulkConversionRate = parseFloat(formData.get("bulkConversionRate") as string) || null
   const openingStock = parseFloat(formData.get("openingStock") as string) || 0
 
   const product = await prisma.product.create({
@@ -31,6 +33,8 @@ export async function createProduct(formData: FormData) {
       sellingPrice,
       gst,
       unit,
+      bulkUnitName,
+      bulkConversionRate,
       minimumStock,
       maximumStock,
       inventory: {
@@ -54,12 +58,20 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function deleteProduct(id: string) {
-  await prisma.product.delete({
-    where: { id }
-  })
+  try {
+    await prisma.product.delete({
+      where: { id }
+    })
+  } catch (error: any) {
+    if (error.code === 'P2003') {
+      return { success: false, error: "Cannot delete this product because it has associated sales or purchase history. Please edit the product and mark it as Inactive instead." }
+    }
+    return { success: false, error: error.message || "An error occurred while deleting the product." }
+  }
   
   revalidatePath("/products")
   revalidatePath("/")
+  return { success: true }
 }
 
 export async function updateProduct(id: string, formData: FormData) {
@@ -75,6 +87,9 @@ export async function updateProduct(id: string, formData: FormData) {
   const unit = formData.get("unit") as string
   const minimumStock = parseFloat(formData.get("minimumStock") as string) || 10
   const maximumStock = parseFloat(formData.get("maximumStock") as string) || 1000
+  const bulkUnitName = formData.get("bulkUnitName") as string || null
+  const bulkConversionRate = parseFloat(formData.get("bulkConversionRate") as string) || null
+  const isActive = formData.get("isActive") === "true"
 
   await prisma.product.update({
     where: { id },
@@ -89,8 +104,11 @@ export async function updateProduct(id: string, formData: FormData) {
       sellingPrice,
       gst,
       unit,
+      bulkUnitName,
+      bulkConversionRate,
       minimumStock,
       maximumStock,
+      isActive
     }
   })
 

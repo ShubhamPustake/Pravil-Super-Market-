@@ -34,7 +34,10 @@ export default function ProductClient({
   const handleDelete = (id: string) => {
     if (window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
       startTransition(async () => {
-        await deleteProduct(id)
+        const response = await deleteProduct(id)
+        if (response && response.error) {
+          alert(response.error)
+        }
       })
     }
   }
@@ -143,7 +146,18 @@ export default function ProductClient({
                         ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
-                      {(product.inventory?.availableStock || 0).toFixed(2)}
+                      {(() => {
+                        const stock = product.inventory?.availableStock || 0;
+                        if (product.bulkUnitName && product.bulkConversionRate) {
+                          const bulkQty = Math.floor(stock / product.bulkConversionRate);
+                          const looseQty = stock % product.bulkConversionRate;
+                          let text = [];
+                          if (bulkQty > 0) text.push(`${bulkQty} ${product.bulkUnitName}`);
+                          if (looseQty > 0 || bulkQty === 0) text.push(`${parseFloat(looseQty.toFixed(2))} ${product.unit}`);
+                          return text.join(" & ");
+                        }
+                        return `${parseFloat(stock.toFixed(2))} ${product.unit}`;
+                      })()}
                     </span>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
@@ -246,7 +260,7 @@ export default function ProductClient({
                     <option value="g">Grams (g)</option>
                     <option value="L">Liters (L)</option>
                     <option value="box">Box</option>
-                    <option value="pack">Pack</option>
+                    <option value="katta">Katta</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -256,6 +270,27 @@ export default function ProductClient({
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Max Stock</label>
                   <Input name="maximumStock" type="number" step="any" defaultValue={editingProduct.maximumStock === 0 ? '' : editingProduct.maximumStock} placeholder="0" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Bulk Pkg Name (e.g. Katta, Box)</label>
+                  <Input name="bulkUnitName" defaultValue={editingProduct.bulkUnitName || ""} placeholder="Leave blank if none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Items/Weight per Bulk</label>
+                  <Input name="bulkConversionRate" type="number" step="any" defaultValue={editingProduct.bulkConversionRate || ""} placeholder="e.g. 30" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <select name="isActive" required defaultValue={editingProduct.isActive ? "true" : "false"} className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm">
+                    <option value="true">Active (Available for Sale)</option>
+                    <option value="false">Inactive (Hidden from POS)</option>
+                  </select>
                 </div>
               </div>
 

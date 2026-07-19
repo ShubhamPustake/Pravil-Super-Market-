@@ -22,11 +22,9 @@ export function Header() {
     <header className="flex h-16 shrink-0 items-center border-b px-4 md:px-6 bg-background">
       <div className="flex items-center gap-4 lg:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle Sidebar</span>
-            </Button>
+          <SheetTrigger render={<Button variant="ghost" size="icon" className="shrink-0" />}>
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle Sidebar</span>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 bg-slate-900 border-r-slate-800 text-slate-300">
             <div className="flex h-16 shrink-0 items-center border-b border-slate-800 px-6">

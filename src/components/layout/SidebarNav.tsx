@@ -15,11 +15,13 @@ import {
   AlertTriangle,
   Settings,
   MonitorSmartphone,
+  BookUser,
 } from "lucide-react"
 
 export const sidebarLinks = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "POS Terminal", href: "/sales/new", icon: MonitorSmartphone },
+  { name: "Udhar Khata", href: "/udhar", icon: BookUser },
   { name: "Products", href: "/products", icon: Package },
   { name: "Categories", href: "/categories", icon: Tags },
   { name: "Brands", href: "/brands", icon: Tags },
