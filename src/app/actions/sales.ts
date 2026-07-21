@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 export type SaleItemInput = {
   productId: string
+  variantId?: string
   quantity: number
   sellingPrice: number
   discount: number
@@ -19,17 +20,24 @@ export async function createSale(data: {
   customerPhone?: string
   status?: string
   notes?: string
+  saleDate?: Date | string
   items: SaleItemInput[]
 }) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       // 1. Verify Inventory before processing
       for (const item of data.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         const inventory = await tx.inventory.findUnique({
           where: { productId: item.productId }
         })
         
-        if (!inventory || inventory.availableStock < item.quantity) {
+        if (!inventory || inventory.availableStock < baseQuantity) {
           throw new Error(`Insufficient stock for product ID: ${item.productId}. Available: ${inventory?.availableStock || 0}`)
         }
       }
@@ -44,9 +52,11 @@ export async function createSale(data: {
           customerPhone: data.customerPhone,
           status: data.status || "PAID",
           notes: data.notes,
+          saleDate: data.saleDate ? new Date(data.saleDate) : undefined,
           items: {
             create: data.items.map((item: any) => ({
               productId: item.productId,
+              variantId: item.variantId || undefined,
               quantity: item.quantity,
               sellingPrice: item.sellingPrice,
               discount: item.discount,
@@ -58,12 +68,18 @@ export async function createSale(data: {
 
       // 3. Update Inventory and create StockMovement logs
       for (const item of data.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         // Decrease inventory
         await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             availableStock: {
-              decrement: item.quantity
+              decrement: baseQuantity
             }
           }
         })
@@ -73,7 +89,7 @@ export async function createSale(data: {
           data: {
             productId: item.productId,
             type: "OUT",
-            quantity: item.quantity,
+            quantity: baseQuantity,
             reference: `SALE-${sale.id}`
           }
         })
@@ -94,11 +110,13 @@ export async function createSale(data: {
 
 export async function markSaleAsPaid(id: string, paymentMethod: string) {
   try {
+    const sale = await prisma.sale.findUnique({ where: { id } })
     await prisma.sale.update({
       where: { id },
       data: {
         status: "PAID",
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        notes: sale?.notes ? `${sale.notes} [Was UDHAR]` : "[Was UDHAR]"
       }
     })
     
@@ -123,11 +141,17 @@ export async function deleteSale(id: string) {
 
       // 2. Revert inventory
       for (const item of sale.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             availableStock: {
-              increment: item.quantity
+              increment: baseQuantity
             }
           }
         })
@@ -137,7 +161,7 @@ export async function deleteSale(id: string) {
           data: {
             productId: item.productId,
             type: "IN",
-            quantity: item.quantity,
+            quantity: baseQuantity,
             reference: `SALE-REVERT-${sale.id}`
           }
         })
@@ -168,6 +192,7 @@ export async function updateSale(saleId: string, data: {
   customerPhone?: string
   status?: string
   notes?: string
+  saleDate?: Date | string
   items: SaleItemInput[]
 }) {
   try {
@@ -182,11 +207,17 @@ export async function updateSale(saleId: string, data: {
 
       // 2. REVERT Old Inventory
       for (const item of existingSale.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             availableStock: {
-              increment: item.quantity
+              increment: baseQuantity
             }
           }
         })
@@ -196,7 +227,7 @@ export async function updateSale(saleId: string, data: {
           data: {
             productId: item.productId,
             type: "IN",
-            quantity: item.quantity,
+            quantity: baseQuantity,
             reference: `SALE-EDIT-REVERT-${saleId}`
           }
         })
@@ -204,11 +235,17 @@ export async function updateSale(saleId: string, data: {
 
       // 3. Verify Inventory for NEW items (using the now-reverted stock)
       for (const item of data.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         const inventory = await tx.inventory.findUnique({
           where: { productId: item.productId }
         })
         
-        if (!inventory || inventory.availableStock < item.quantity) {
+        if (!inventory || inventory.availableStock < baseQuantity) {
           throw new Error(`Insufficient stock for product ID: ${item.productId}. Available: ${inventory?.availableStock || 0}`)
         }
       }
@@ -229,9 +266,11 @@ export async function updateSale(saleId: string, data: {
           customerPhone: data.customerPhone,
           status: data.status || "PAID",
           notes: data.notes,
+          saleDate: data.saleDate ? new Date(data.saleDate) : undefined,
           items: {
             create: data.items.map((item: any) => ({
               productId: item.productId,
+              variantId: item.variantId || undefined,
               quantity: item.quantity,
               sellingPrice: item.sellingPrice,
               discount: item.discount,
@@ -243,11 +282,17 @@ export async function updateSale(saleId: string, data: {
 
       // 6. Deduct NEW Inventory
       for (const item of data.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             availableStock: {
-              decrement: item.quantity
+              decrement: baseQuantity
             }
           }
         })
@@ -257,7 +302,7 @@ export async function updateSale(saleId: string, data: {
           data: {
             productId: item.productId,
             type: "OUT",
-            quantity: item.quantity,
+            quantity: baseQuantity,
             reference: `SALE-EDIT-REAPPLY-${saleId}`
           }
         })

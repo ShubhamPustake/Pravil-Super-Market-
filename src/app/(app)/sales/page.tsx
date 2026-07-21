@@ -8,6 +8,12 @@ export default async function SalesPage() {
   const sales = await prisma.sale.findMany({
     orderBy: { saleDate: 'desc' },
     include: {
+      items: {
+        include: {
+          product: true,
+          variant: true
+        }
+      },
       _count: { select: { items: true } }
     }
   })

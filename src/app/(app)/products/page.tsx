@@ -9,7 +9,8 @@ export default async function ProductsPage() {
     include: {
       category: true,
       brand: true,
-      inventory: true
+      inventory: true,
+      variants: true
     },
     orderBy: {
       createdAt: 'desc'

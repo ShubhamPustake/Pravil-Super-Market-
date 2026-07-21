@@ -5,7 +5,11 @@ import { BookUser } from "lucide-react"
 export default async function UdharPage() {
   const udharSales = await prisma.sale.findMany({
     where: {
-      status: "UNPAID"
+      OR: [
+        { status: "UNPAID" },
+        { paymentMethod: "UDHAR" },
+        { notes: { contains: "[Was UDHAR]" } }
+      ]
     },
     orderBy: { saleDate: 'desc' },
     include: {

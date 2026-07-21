@@ -6,7 +6,11 @@ import InventoryClient from "./InventoryClient"
 export default async function InventoryPage() {
   const inventory = await prisma.inventory.findMany({
     include: {
-      product: true
+      product: {
+        include: {
+          variants: true
+        }
+      }
     },
     orderBy: {
       availableStock: 'asc'

@@ -9,7 +9,7 @@ import Link from "next/link"
 import { ArrowLeft, Plus, Trash2, Upload, Loader2, Sparkles, X } from "lucide-react"
 import { createQuickProduct } from "@/app/actions/products"
 
-type Product = { id: string; name: string; purchasePrice: number; sellingPrice: number }
+type Product = { id: string; name: string; purchasePrice: number; sellingPrice: number; unit: string; category?: { name: string }; variants?: any[] }
 type Supplier = { id: string; name: string }
 type Category = { id: string; name: string }
 type Brand = { id: string; name: string }
@@ -19,7 +19,7 @@ export default function NewPurchasePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
-  const [items, setItems] = useState([{ productId: "", unmatchedName: "", quantity: 1, purchasePrice: 0, sellingPrice: 0, gst: 0, finalCost: 0 }])
+  const [items, setItems] = useState([{ productId: "", variantId: "", unmatchedName: "", quantity: 1, displayQuantity: 1, purchasePrice: 0, sellingPrice: 0, gst: 0, finalCost: 0 }])
   const [isScanning, setIsScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   
@@ -36,7 +36,7 @@ export default function NewPurchasePage() {
   }, [])
 
   const handleAddItem = () => {
-    setItems([...items, { productId: "", unmatchedName: "", quantity: 1, purchasePrice: 0, sellingPrice: 0, gst: 0, finalCost: 0 }])
+    setItems([...items, { productId: "", variantId: "", unmatchedName: "", quantity: 1, displayQuantity: 1, purchasePrice: 0, sellingPrice: 0, gst: 0, finalCost: 0 }])
   }
 
   const handleRemoveItem = (index: number) => {
@@ -79,8 +79,10 @@ export default function NewPurchasePage() {
 
         return {
           productId: matchedProduct?.id || "",
+          variantId: "",
           unmatchedName: matchedProduct ? "" : aiItem.productName,
           quantity: aiItem.quantity || 1,
+          displayQuantity: aiItem.quantity || 1,
           purchasePrice: aiItem.purchasePrice || 0,
           sellingPrice: aiItem.sellingPrice || matchedProduct?.sellingPrice || 0,
           gst: aiItem.gst || 0,
@@ -105,7 +107,7 @@ export default function NewPurchasePage() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     
-    await createPurchase({
+    const res = await createPurchase({
       supplierId: formData.get("supplierId") as string,
       invoiceNumber: formData.get("invoiceNumber") as string,
       transportCost: parseFloat(formData.get("transportCost") as string) || 0,
@@ -113,6 +115,12 @@ export default function NewPurchasePage() {
       totalCost: calculateTotal() + (parseFloat(formData.get("transportCost") as string) || 0) - (parseFloat(formData.get("discount") as string) || 0),
       items: items.filter(i => i.productId !== "")
     })
+    
+    if (res && !res.success) {
+      alert(res.error || "Failed to complete purchase")
+    } else {
+      alert("Purchase completed successfully!")
+    }
   }
 
   return (
@@ -195,7 +203,9 @@ export default function NewPurchasePage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, index) => (
+                {items.map((item, index) => {
+                  const selectedProduct = products.find(p => p.id === item.productId)
+                  return (
                   <tr key={index} className="border-b">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -210,7 +220,10 @@ export default function NewPurchasePage() {
                             if (prod) {
                               newItems[index].purchasePrice = prod.purchasePrice
                               newItems[index].sellingPrice = prod.sellingPrice
-                              newItems[index].finalCost = newItems[index].quantity * prod.purchasePrice * (1 + newItems[index].gst / 100)
+                              newItems[index].variantId = ""
+                              newItems[index].displayQuantity = 1
+                              newItems[index].quantity = 1
+                              newItems[index].finalCost = 1 * prod.purchasePrice * (1 + newItems[index].gst / 100)
                             }
                             setItems(newItems)
                           }}
@@ -232,16 +245,53 @@ export default function NewPurchasePage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Input 
-                        type="number" step="any" required min="0.001" 
-                        value={item.quantity === 0 ? '' : item.quantity}
-                        onChange={(e) => {
-                          const newItems = [...items]
-                          newItems[index].quantity = parseFloat(e.target.value) || 0
-                          newItems[index].finalCost = newItems[index].quantity * newItems[index].purchasePrice * (1 + newItems[index].gst / 100)
-                          setItems(newItems)
-                        }}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          type="number" step="any" required min="0.001" 
+                          value={item.displayQuantity === 0 ? '' : item.displayQuantity}
+                          onChange={(e) => {
+                            const newItems = [...items]
+                            const val = parseFloat(e.target.value) || 0
+                            newItems[index].displayQuantity = val
+                            
+                            let actualQty = val
+                            newItems[index].quantity = actualQty
+                            newItems[index].finalCost = actualQty * newItems[index].purchasePrice * (1 + newItems[index].gst / 100)
+                            setItems(newItems)
+                          }}
+                          className="w-20"
+                        />
+                        {selectedProduct && (
+                          <select 
+                            className="flex h-9 w-24 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                            value={item.variantId}
+                            onChange={(e) => {
+                              const newItems = [...items]
+                              const variantId = e.target.value
+                              newItems[index].variantId = variantId
+                              
+                              if (variantId) {
+                                const variant = selectedProduct.variants?.find((v: any) => v.id === variantId)
+                                if (variant) {
+                                  newItems[index].purchasePrice = variant.purchasePrice || selectedProduct.purchasePrice
+                                  newItems[index].sellingPrice = variant.sellingPrice || selectedProduct.sellingPrice
+                                }
+                              } else {
+                                newItems[index].purchasePrice = selectedProduct.purchasePrice
+                                newItems[index].sellingPrice = selectedProduct.sellingPrice
+                              }
+                              
+                              newItems[index].finalCost = newItems[index].quantity * newItems[index].purchasePrice * (1 + newItems[index].gst / 100)
+                              setItems(newItems)
+                            }}
+                          >
+                            <option value="">{selectedProduct.unit || 'Base Unit'}</option>
+                            {selectedProduct.variants?.map((v: any) => (
+                              <option key={v.id} value={v.id}>{v.unitName}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Input 
@@ -287,7 +337,7 @@ export default function NewPurchasePage() {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

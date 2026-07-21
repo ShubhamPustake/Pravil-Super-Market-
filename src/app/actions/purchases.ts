@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 
 export type PurchaseItemInput = {
   productId: string
+  variantId?: string
   quantity: number
   purchasePrice: number
   sellingPrice: number
@@ -33,6 +34,7 @@ export async function createPurchase(data: {
         items: {
           create: data.items.map((item: any) => ({
             productId: item.productId,
+            variantId: item.variantId || undefined,
             quantity: item.quantity,
             purchasePrice: item.purchasePrice,
             gst: item.gst,
@@ -44,22 +46,38 @@ export async function createPurchase(data: {
 
     // 2. Update Inventory and create StockMovement logs
     for (const item of data.items) {
+      let baseQuantity = item.quantity
+      if (item.variantId) {
+        const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+        if (variant) {
+          baseQuantity = item.quantity * variant.conversionRate
+          // Optionally update variant pricing here
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: {
+              purchasePrice: item.purchasePrice,
+              sellingPrice: item.sellingPrice
+            }
+          })
+        }
+      } else {
+        // Update Product pricing
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            purchasePrice: item.purchasePrice,
+            sellingPrice: item.sellingPrice
+          }
+        })
+      }
+
       // Update inventory (increment)
       await tx.inventory.update({
         where: { productId: item.productId },
         data: {
           availableStock: {
-            increment: item.quantity
+            increment: baseQuantity
           }
-        }
-      })
-      
-      // Update Product pricing
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          purchasePrice: item.purchasePrice,
-          sellingPrice: item.sellingPrice
         }
       })
 
@@ -68,7 +86,7 @@ export async function createPurchase(data: {
         data: {
           productId: item.productId,
           type: "IN",
-          quantity: item.quantity,
+          quantity: baseQuantity,
           reference: `PURCHASE-${purchase.id}`
         }
       })
@@ -78,7 +96,8 @@ export async function createPurchase(data: {
   revalidatePath("/purchases")
   revalidatePath("/inventory")
   revalidatePath("/")
-  redirect("/")
+  
+  return { success: true }
 }
 
 export async function deletePurchase(purchaseId: string) {
@@ -92,11 +111,17 @@ export async function deletePurchase(purchaseId: string) {
 
       // Revert Inventory and create StockMovement logs
       for (const item of purchase.items) {
+        let baseQuantity = item.quantity
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) baseQuantity = item.quantity * variant.conversionRate
+        }
+
         await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             availableStock: {
-              decrement: item.quantity
+              decrement: baseQuantity
             }
           }
         })
@@ -105,7 +130,7 @@ export async function deletePurchase(purchaseId: string) {
           data: {
             productId: item.productId,
             type: "OUT",
-            quantity: item.quantity,
+            quantity: baseQuantity,
             reference: `REVERT_PURCHASE-${purchase.id}`
           }
         })

@@ -4,14 +4,16 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, AlertTriangle, Edit, RotateCcw, X, Loader2 } from "lucide-react"
+import { Search, AlertTriangle, Edit, RotateCcw, X, Loader2, Plus, Minus } from "lucide-react"
 import { updateInventoryStock } from "@/app/actions/inventory"
 import { useTransition } from "react"
+import React from "react"
 
 export default function InventoryClient({ initialInventory }: { initialInventory: any[] }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [editingInv, setEditingInv] = useState<any>(null)
   const [newStock, setNewStock] = useState("")
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
   
   const filteredInventory = initialInventory.filter(inv => {
@@ -38,6 +40,16 @@ export default function InventoryClient({ initialInventory }: { initialInventory
         if (res.error) alert(res.error)
       })
     }
+  }
+
+  const toggleExpand = (id: string) => {
+    const newExpanded = new Set(expandedRows)
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id)
+    } else {
+      newExpanded.add(id)
+    }
+    setExpandedRows(newExpanded)
   }
 
   return (
@@ -80,23 +92,27 @@ export default function InventoryClient({ initialInventory }: { initialInventory
                 const isOutOfStock = inv.availableStock === 0
 
                 return (
-                  <TableRow key={inv.id} className={isOutOfStock ? "bg-red-50/50 dark:bg-red-950/20" : ""}>
-                    <TableCell className="font-medium">{inv.product.name}</TableCell>
+                  <React.Fragment key={inv.id}>
+                  <TableRow className={isOutOfStock ? "bg-red-50/50 dark:bg-red-950/20" : ""}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {inv.product.variants && inv.product.variants.length > 0 && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-slate-500 hover:text-slate-900"
+                            onClick={() => toggleExpand(inv.id)}
+                          >
+                            {expandedRows.has(inv.id) ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        <span>{inv.product.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{inv.product.sku || 'N/A'}</TableCell>
                     <TableCell>{inv.product.minimumStock}</TableCell>
                     <TableCell className="font-bold text-lg">
-                      {(() => {
-                        const stock = inv.availableStock || 0;
-                        if (inv.product.bulkUnitName && inv.product.bulkConversionRate) {
-                          const bulkQty = Math.floor(stock / inv.product.bulkConversionRate);
-                          const looseQty = stock % inv.product.bulkConversionRate;
-                          let text = [];
-                          if (bulkQty > 0) text.push(`${bulkQty} ${inv.product.bulkUnitName}`);
-                          if (looseQty > 0 || bulkQty === 0) text.push(`${parseFloat(looseQty.toFixed(2))} ${inv.product.unit}`);
-                          return text.join(" & ");
-                        }
-                        return `${parseFloat(stock.toFixed(2))} ${inv.product.unit}`;
-                      })()}
+                      {parseFloat((inv.availableStock || 0).toFixed(2))} {inv.product.unit}
                     </TableCell>
                     <TableCell>
                       {isOutOfStock ? (
@@ -131,6 +147,43 @@ export default function InventoryClient({ initialInventory }: { initialInventory
                       </Button>
                     </TableCell>
                   </TableRow>
+                  {expandedRows.has(inv.id) && inv.product.variants && inv.product.variants.length > 0 && (
+                    <TableRow className="bg-slate-50/50 dark:bg-slate-900/20 border-b-2">
+                      <TableCell colSpan={6} className="p-0">
+                        <div className="p-4 pl-14 border-l-4 border-emerald-500 my-1 ml-1 bg-white dark:bg-slate-900 rounded-r-md shadow-sm">
+                          <h4 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300">Equivalent Variant Stock</h4>
+                          <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {inv.product.variants.map((v: any) => {
+                              const totalStock = inv.availableStock || 0
+                              const fullUnits = v.conversionRate ? Math.floor(totalStock / v.conversionRate) : 0
+                              const remainder = v.conversionRate ? totalStock % v.conversionRate : totalStock
+                              
+                              return (
+                                <div key={v.id} className="flex flex-col gap-1 p-3 border rounded-md bg-slate-50 dark:bg-slate-800/50">
+                                  <span className="font-medium text-sm text-emerald-700 dark:text-emerald-400">{v.unitName}</span>
+                                  <div className="text-xs text-muted-foreground grid gap-y-1 mt-1">
+                                    <div className="flex justify-between">
+                                      <span>Available:</span> 
+                                      <span className="font-bold text-slate-900 dark:text-slate-100">{fullUnits} {v.unitName}s</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span>Remainder:</span> 
+                                      <span className="font-medium text-slate-700 dark:text-slate-300">{remainder > 0 ? `${remainder.toFixed(2)} ${inv.product.unit} loose` : 'None'}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t pt-1 mt-1">
+                                      <span>Conversion:</span> 
+                                      <span>1 {v.unitName} = {v.conversionRate} {inv.product.unit}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 )
               })
             )}

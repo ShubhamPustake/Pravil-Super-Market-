@@ -17,8 +17,8 @@ export async function createProduct(formData: FormData) {
   const unit = formData.get("unit") as string
   const minimumStock = parseFloat(formData.get("minimumStock") as string) || 10
   const maximumStock = parseFloat(formData.get("maximumStock") as string) || 1000
-  const bulkUnitName = formData.get("bulkUnitName") as string || null
-  const bulkConversionRate = parseFloat(formData.get("bulkConversionRate") as string) || null
+  const variantsJson = formData.get("variants") as string
+  const variants = variantsJson ? JSON.parse(variantsJson) : []
   const openingStock = parseFloat(formData.get("openingStock") as string) || 0
 
   const product = await prisma.product.create({
@@ -33,10 +33,17 @@ export async function createProduct(formData: FormData) {
       sellingPrice,
       gst,
       unit,
-      bulkUnitName,
-      bulkConversionRate,
       minimumStock,
       maximumStock,
+      variants: variants.length > 0 ? {
+        create: variants.map((v: any) => ({
+          unitName: v.unitName,
+          conversionRate: parseFloat(v.conversionRate) || 1,
+          sellingPrice: parseFloat(v.sellingPrice) || 0,
+          purchasePrice: v.purchasePrice ? parseFloat(v.purchasePrice) : null,
+          barcode: v.barcode || null
+        }))
+      } : undefined,
       inventory: {
         create: {
           availableStock: openingStock
@@ -87,8 +94,8 @@ export async function updateProduct(id: string, formData: FormData) {
   const unit = formData.get("unit") as string
   const minimumStock = parseFloat(formData.get("minimumStock") as string) || 10
   const maximumStock = parseFloat(formData.get("maximumStock") as string) || 1000
-  const bulkUnitName = formData.get("bulkUnitName") as string || null
-  const bulkConversionRate = parseFloat(formData.get("bulkConversionRate") as string) || null
+  const variantsJson = formData.get("variants") as string
+  const variants = variantsJson ? JSON.parse(variantsJson) : []
   const isActive = formData.get("isActive") === "true"
 
   await prisma.product.update({
@@ -104,13 +111,28 @@ export async function updateProduct(id: string, formData: FormData) {
       sellingPrice,
       gst,
       unit,
-      bulkUnitName,
-      bulkConversionRate,
       minimumStock,
       maximumStock,
       isActive
     }
   })
+
+  // Handle variants update (simple approach: delete all and recreate)
+  if (variantsJson) {
+    await prisma.productVariant.deleteMany({ where: { productId: id } })
+    if (variants.length > 0) {
+      await prisma.productVariant.createMany({
+        data: variants.map((v: any) => ({
+          productId: id,
+          unitName: v.unitName,
+          conversionRate: parseFloat(v.conversionRate) || 1,
+          sellingPrice: parseFloat(v.sellingPrice) || 0,
+          purchasePrice: v.purchasePrice ? parseFloat(v.purchasePrice) : null,
+          barcode: v.barcode || null
+        }))
+      })
+    }
+  }
 
   revalidatePath("/products")
   revalidatePath("/")

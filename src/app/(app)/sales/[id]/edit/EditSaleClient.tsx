@@ -9,7 +9,7 @@ import Link from "next/link"
 import { ArrowLeft, Plus, Trash2, ShoppingBag } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-type Product = { id: string; name: string; sellingPrice: number; unit: string; category?: { name: string }; inventory?: { availableStock: number }; bulkUnitName?: string; bulkConversionRate?: number }
+type Product = { id: string; name: string; sellingPrice: number; unit: string; category?: { name: string }; inventory?: { availableStock: number }; variants?: any[] }
 
 function ProductSearch({ products, value, onChange }: { products: Product[], value: string, onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -266,26 +266,28 @@ export default function EditSaleClient({ sale }: { sale: any }) {
                         </div>
                       )}
                       
-                      {selectedProduct && selectedProduct.bulkUnitName && selectedProduct.bulkConversionRate && (
+                      {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
                         <div className="mt-2 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input 
-                              type="number"
-                              placeholder={`Enter ${selectedProduct.bulkUnitName}s`}
-                              className="h-7 text-xs w-24 bg-blue-50 dark:bg-slate-800 border-blue-200"
-                              onChange={(e) => {
-                                const bulkAmount = parseFloat(e.target.value)
-                                if (!isNaN(bulkAmount) && bulkAmount > 0) {
-                                  const qtyValue = bulkAmount * selectedProduct.bulkConversionRate!
-                                  const newItems = [...items]
-                                  newItems[index].quantity = qtyValue
-                                  newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
-                                  setItems(newItems)
-                                }
-                              }}
-                            />
-                            <span className="text-xs text-muted-foreground font-medium">{selectedProduct.bulkUnitName}</span>
-                          </div>
+                          {selectedProduct.variants.map((variant: any) => (
+                            <div key={variant.id} className="flex items-center gap-2">
+                              <Input 
+                                type="number"
+                                placeholder={`Enter ${variant.unitName}s`}
+                                className="h-7 text-xs w-24 bg-blue-50 dark:bg-slate-800 border-blue-200"
+                                onChange={(e) => {
+                                  const bulkAmount = parseFloat(e.target.value)
+                                  if (!isNaN(bulkAmount) && bulkAmount > 0) {
+                                    const qtyValue = bulkAmount * variant.conversionRate
+                                    const newItems = [...items]
+                                    newItems[index].quantity = qtyValue
+                                    newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
+                                    setItems(newItems)
+                                  }
+                                }}
+                              />
+                              <span className="text-xs text-muted-foreground font-medium">{variant.unitName}</span>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </td>

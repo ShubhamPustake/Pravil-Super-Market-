@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createSale } from "@/app/actions/sales"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Trash2, ShoppingBag } from "lucide-react"
 
-type Product = { id: string; name: string; sellingPrice: number; unit: string; category?: { name: string }; inventory?: { availableStock: number }; bulkUnitName?: string; bulkConversionRate?: number }
+type Product = { id: string; name: string; sellingPrice: number; unit: string; category?: { name: string }; inventory?: { availableStock: number }; variants?: any[] }
 
 function ProductSearch({ products, value, onChange }: { products: Product[], value: string, onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -85,8 +86,9 @@ function ProductSearch({ products, value, onChange }: { products: Product[], val
 }
 
 export default function POSPage() {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
-  const [items, setItems] = useState([{ productId: "", quantity: 1, sellingPrice: 0, discount: 0, finalPrice: 0 }])
+  const [items, setItems] = useState([{ productId: "", quantity: 1, displayQuantity: 1, selectedUnit: "", sellingPrice: 0, discount: 0, finalPrice: 0 }])
   const [error, setError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState("CASH")
 
@@ -95,7 +97,7 @@ export default function POSPage() {
   }, [])
 
   const handleAddItem = () => {
-    setItems([...items, { productId: "", quantity: 1, sellingPrice: 0, discount: 0, finalPrice: 0 }])
+    setItems([...items, { productId: "", quantity: 1, displayQuantity: 1, selectedUnit: "", sellingPrice: 0, discount: 0, finalPrice: 0 }])
   }
 
   const handleRemoveItem = (index: number) => {
@@ -122,13 +124,36 @@ export default function POSPage() {
       customerPhone: formData.get("customerPhone") as string,
       status: paymentMethod === "UDHAR" ? "UNPAID" : "PAID",
       notes: formData.get("notes") as string,
-      items: validItems
+      items: validItems.map(item => {
+        const prod = products.find(p => p.id === item.productId)
+        let backendQty = item.displayQuantity
+        let backendPrice = item.sellingPrice
+        let variantId = undefined
+        
+        if (item.selectedUnit === 'g' || item.selectedUnit === 'ml') {
+           backendQty = item.displayQuantity / 1000
+        } else if (prod && item.selectedUnit !== prod.unit && item.selectedUnit !== 'pcs') {
+           // It must be a variantId
+           variantId = item.selectedUnit
+           // The action handles multiplying the quantity by the conversionRate for variants
+           // So backendQty remains displayQuantity
+        }
+        
+        return {
+          productId: item.productId,
+          variantId: variantId,
+          quantity: backendQty,
+          sellingPrice: backendPrice,
+          discount: item.discount,
+          finalPrice: item.finalPrice
+        }
+      })
     })
 
     if (response && !response.success) {
       setError((response as any).error || "An error occurred.")
     } else {
-      window.location.href = "/"
+      router.push('/sales')
     }
   }
 
@@ -188,8 +213,13 @@ export default function POSPage() {
                           const newItems = [...items]
                           newItems[index].productId = newProductId
                           const prod = products.find(p => p.id === newProductId)
-                          if (prod) newItems[index].sellingPrice = prod.sellingPrice
-                          newItems[index].finalPrice = (newItems[index].quantity * newItems[index].sellingPrice) - newItems[index].discount
+                          if (prod) {
+                            newItems[index].selectedUnit = prod.unit || 'pcs'
+                            newItems[index].displayQuantity = 1
+                            newItems[index].quantity = 1
+                            newItems[index].sellingPrice = prod.sellingPrice
+                            newItems[index].finalPrice = prod.sellingPrice - newItems[index].discount
+                          }
                           setItems(newItems)
                         }}
                       />
@@ -200,82 +230,60 @@ export default function POSPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Input 
-                        type="number" step="any" required min="0.001" max={availableStock || undefined}
-                        value={item.quantity === 0 ? '' : item.quantity}
-                        onChange={(e) => {
-                          const newItems = [...items]
-                          newItems[index].quantity = parseFloat(e.target.value) || 0
-                          newItems[index].finalPrice = (newItems[index].quantity * newItems[index].sellingPrice) - newItems[index].discount
-                          setItems(newItems)
-                        }}
-                      />
-                      {selectedProduct && selectedProduct.unit?.toLowerCase() === 'kg' && (
-                        <div className="mt-2 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input 
-                              type="number"
-                              placeholder="Enter grams"
-                              className="h-7 text-xs w-24 bg-slate-50 dark:bg-slate-800"
-                              onChange={(e) => {
-                                const grams = parseFloat(e.target.value)
-                                if (!isNaN(grams) && grams > 0) {
-                                  const qtyValue = grams / 1000
-                                  const newItems = [...items]
-                                  newItems[index].quantity = qtyValue
-                                  newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
-                                  setItems(newItems)
-                                }
-                              }}
-                            />
-                            <span className="text-xs text-muted-foreground font-medium">grams</span>
-                          </div>
-                          {['pulses', 'rice', 'wheat', 'rava', 'poha'].some(c => selectedProduct.category?.name.toLowerCase().includes(c)) && (
-                            <div className="flex flex-wrap gap-1">
-                              {[50, 100, 250, 500, 750].map((weight: any) => {
-                                const qtyValue = weight / 1000
-                                return (
-                                  <Button 
-                                    key={weight} type="button" variant="outline" size="sm" 
-                                    className="h-6 px-1.5 text-[10px] bg-slate-100 dark:bg-slate-800"
-                                    onClick={() => {
-                                      const newItems = [...items]
-                                      newItems[index].quantity = qtyValue
-                                      newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
-                                      setItems(newItems)
-                                    }}
-                                  >
-                                    {weight}g
-                                  </Button>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {selectedProduct && selectedProduct.bulkUnitName && selectedProduct.bulkConversionRate && (
-                        <div className="mt-2 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input 
-                              type="number"
-                              placeholder={`Enter ${selectedProduct.bulkUnitName}s`}
-                              className="h-7 text-xs w-24 bg-blue-50 dark:bg-slate-800 border-blue-200"
-                              onChange={(e) => {
-                                const bulkAmount = parseFloat(e.target.value)
-                                if (!isNaN(bulkAmount) && bulkAmount > 0) {
-                                  const qtyValue = bulkAmount * selectedProduct.bulkConversionRate!
-                                  const newItems = [...items]
-                                  newItems[index].quantity = qtyValue
-                                  newItems[index].finalPrice = (qtyValue * newItems[index].sellingPrice) - newItems[index].discount
-                                  setItems(newItems)
-                                }
-                              }}
-                            />
-                            <span className="text-xs text-muted-foreground font-medium">{selectedProduct.bulkUnitName}</span>
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          type="number" step="any" required min="0.001"
+                          value={item.displayQuantity === 0 ? '' : item.displayQuantity}
+                          onChange={(e) => {
+                            const newItems = [...items]
+                            const val = parseFloat(e.target.value) || 0
+                            newItems[index].displayQuantity = val
+                            
+                            let qtyForPrice = val
+                            if (item.selectedUnit === 'g' || item.selectedUnit === 'ml') {
+                              qtyForPrice = val / 1000
+                            }
+                            
+                            newItems[index].finalPrice = (qtyForPrice * newItems[index].sellingPrice) - newItems[index].discount
+                            setItems(newItems)
+                          }}
+                          className="w-20"
+                        />
+                        {selectedProduct && (
+                          <select 
+                            className="flex h-9 w-24 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                            value={item.selectedUnit}
+                            onChange={(e) => {
+                              const newItems = [...items]
+                              const unit = e.target.value
+                              newItems[index].selectedUnit = unit
+                              
+                              const variant = selectedProduct.variants?.find((v: any) => v.id === unit)
+                              if (variant) {
+                                newItems[index].displayQuantity = 1
+                                newItems[index].sellingPrice = variant.sellingPrice
+                                newItems[index].finalPrice = newItems[index].sellingPrice - newItems[index].discount
+                              } else if (unit === 'g' || unit === 'ml') {
+                                newItems[index].sellingPrice = selectedProduct.sellingPrice
+                                const qtyForPrice = newItems[index].displayQuantity / 1000
+                                newItems[index].finalPrice = (qtyForPrice * newItems[index].sellingPrice) - newItems[index].discount
+                              } else {
+                                newItems[index].sellingPrice = selectedProduct.sellingPrice
+                                newItems[index].finalPrice = (newItems[index].displayQuantity * newItems[index].sellingPrice) - newItems[index].discount
+                              }
+                              
+                              setItems(newItems)
+                            }}
+                          >
+                            <option value={selectedProduct.unit || 'pcs'}>{selectedProduct.unit || 'Base Unit'}</option>
+                            {selectedProduct.unit?.toLowerCase() === 'kg' && <option value="g">grams (g)</option>}
+                            {selectedProduct.unit?.toLowerCase() === 'l' && <option value="ml">ml</option>}
+                            {selectedProduct.variants?.map((v: any) => (
+                              <option key={v.id} value={v.id}>{v.unitName}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Input 
@@ -284,7 +292,11 @@ export default function POSPage() {
                         onChange={(e) => {
                           const newItems = [...items]
                           newItems[index].sellingPrice = parseFloat(e.target.value) || 0
-                          newItems[index].finalPrice = (newItems[index].quantity * newItems[index].sellingPrice) - newItems[index].discount
+                          let qtyForPrice = newItems[index].displayQuantity
+                          if (newItems[index].selectedUnit === 'g' || newItems[index].selectedUnit === 'ml') {
+                            qtyForPrice = qtyForPrice / 1000
+                          }
+                          newItems[index].finalPrice = (qtyForPrice * newItems[index].sellingPrice) - newItems[index].discount
                           setItems(newItems)
                         }}
                       />
@@ -296,7 +308,11 @@ export default function POSPage() {
                         onChange={(e) => {
                           const newItems = [...items]
                           newItems[index].discount = parseFloat(e.target.value) || 0
-                          newItems[index].finalPrice = (newItems[index].quantity * newItems[index].sellingPrice) - newItems[index].discount
+                          let qtyForPrice = newItems[index].displayQuantity
+                          if (newItems[index].selectedUnit === 'g' || newItems[index].selectedUnit === 'ml') {
+                            qtyForPrice = qtyForPrice / 1000
+                          }
+                          newItems[index].finalPrice = (qtyForPrice * newItems[index].sellingPrice) - newItems[index].discount
                           setItems(newItems)
                         }}
                       />
@@ -310,8 +326,13 @@ export default function POSPage() {
                           const newItems = [...items]
                           const newFinalPrice = parseFloat(e.target.value) || 0
                           newItems[index].finalPrice = newFinalPrice
+                          
+                          let qtyForPrice = newItems[index].displayQuantity
+                          if (newItems[index].selectedUnit === 'g' || newItems[index].selectedUnit === 'ml') {
+                            qtyForPrice = qtyForPrice / 1000
+                          }
                           // Reverse calculate the discount needed to achieve this final price
-                          newItems[index].discount = (newItems[index].quantity * newItems[index].sellingPrice) - newFinalPrice
+                          newItems[index].discount = (qtyForPrice * newItems[index].sellingPrice) - newFinalPrice
                           setItems(newItems)
                         }}
                       />

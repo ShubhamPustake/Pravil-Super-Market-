@@ -4,10 +4,11 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Edit, Trash2, Filter, Download, X, Loader2 } from "lucide-react"
+import { Search, Edit, Trash2, Filter, Download, X, Loader2, Plus, Minus, ChevronDown, ChevronUp } from "lucide-react"
 import { deleteProduct, updateProduct } from "@/app/actions/products"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
+import React from "react"
 
 type ProductData = any // Using any for brevity since Prisma types can be complex here
 type Category = { id: string, name: string }
@@ -26,7 +27,9 @@ export default function ProductClient({
   const [categoryFilter, setCategoryFilter] = useState("")
   const [brandFilter, setBrandFilter] = useState("")
   const [editingProduct, setEditingProduct] = useState<ProductData | null>(null)
+  const [editingVariants, setEditingVariants] = useState<any[]>([])
   const [isUpdating, setIsUpdating] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -58,9 +61,34 @@ export default function ProductClient({
     if (!editingProduct) return
     setIsUpdating(true)
     const formData = new FormData(e.currentTarget)
+    formData.append("variants", JSON.stringify(editingVariants))
     await updateProduct(editingProduct.id, formData)
     setIsUpdating(false)
     setEditingProduct(null)
+  }
+
+  const addEditVariant = () => {
+    setEditingVariants([...editingVariants, { unitName: "", conversionRate: "", sellingPrice: "", purchasePrice: "", barcode: "" }])
+  }
+
+  const removeEditVariant = (index: number) => {
+    setEditingVariants(editingVariants.filter((_, i) => i !== index))
+  }
+
+  const updateEditVariant = (index: number, field: string, value: string) => {
+    const newVariants = [...editingVariants]
+    newVariants[index][field] = value
+    setEditingVariants(newVariants)
+  }
+
+  const toggleExpand = (id: string) => {
+    const newExpanded = new Set(expandedRows)
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id)
+    } else {
+      newExpanded.add(id)
+    }
+    setExpandedRows(newExpanded)
   }
 
   return (
@@ -131,10 +159,25 @@ export default function ProductClient({
               </TableRow>
             ) : (
               filteredProducts.map((product) => (
-                <TableRow key={product.id}>
+                <React.Fragment key={product.id}>
+                <TableRow>
                   <TableCell className="font-medium">
-                    {product.name}
-                    {product.sku && <div className="text-xs text-muted-foreground">SKU: {product.sku}</div>}
+                    <div className="flex items-center gap-2">
+                      {product.variants && product.variants.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-slate-500 hover:text-slate-900"
+                          onClick={() => toggleExpand(product.id)}
+                        >
+                          {expandedRows.has(product.id) ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      <div>
+                        {product.name}
+                        {product.sku && <div className="text-xs text-muted-foreground font-normal mt-0.5">SKU: {product.sku}</div>}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>{product.category.name}</TableCell>
                   <TableCell>{product.brand?.name || '-'}</TableCell>
@@ -146,18 +189,7 @@ export default function ProductClient({
                         ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
-                      {(() => {
-                        const stock = product.inventory?.availableStock || 0;
-                        if (product.bulkUnitName && product.bulkConversionRate) {
-                          const bulkQty = Math.floor(stock / product.bulkConversionRate);
-                          const looseQty = stock % product.bulkConversionRate;
-                          let text = [];
-                          if (bulkQty > 0) text.push(`${bulkQty} ${product.bulkUnitName}`);
-                          if (looseQty > 0 || bulkQty === 0) text.push(`${parseFloat(looseQty.toFixed(2))} ${product.unit}`);
-                          return text.join(" & ");
-                        }
-                        return `${parseFloat(stock.toFixed(2))} ${product.unit}`;
-                      })()}
+                      {parseFloat((product.inventory?.availableStock || 0).toFixed(2))} {product.unit}
                     </span>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
@@ -165,7 +197,10 @@ export default function ProductClient({
                       variant="outline" 
                       size="sm" 
                       className="h-8 border-green-200 text-green-700 hover:bg-green-50"
-                      onClick={() => setEditingProduct(product)}
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setEditingVariants(product.variants || []);
+                      }}
                     >
                       <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                     </Button>
@@ -180,6 +215,31 @@ export default function ProductClient({
                     </Button>
                   </TableCell>
                 </TableRow>
+                {expandedRows.has(product.id) && product.variants && product.variants.length > 0 && (
+                  <TableRow className="bg-slate-50/50 dark:bg-slate-900/20 border-b-2">
+                    <TableCell colSpan={7} className="p-0">
+                      <div className="p-4 pl-14 border-l-4 border-blue-500 my-1 ml-1 bg-white dark:bg-slate-900 rounded-r-md shadow-sm">
+                        <h4 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300">Product Variants</h4>
+                        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {product.variants.map((v: any) => (
+                            <div key={v.id} className="flex flex-col gap-1 p-3 border rounded-md bg-slate-50 dark:bg-slate-800/50">
+                              <span className="font-medium text-sm text-blue-700 dark:text-blue-400">{v.unitName}</span>
+                              <div className="text-xs text-muted-foreground grid grid-cols-2 gap-y-1 mt-1">
+                                <span>Units inside:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{v.conversionRate} {product.unit}s</span>
+                                <span>Pur. Price:</span> <span className="font-medium text-slate-700 dark:text-slate-200">₹{v.purchasePrice ? v.purchasePrice.toFixed(2) : '-'}</span>
+                                <span>Sell Price:</span> <span className="font-medium text-slate-700 dark:text-slate-200">₹{v.sellingPrice ? v.sellingPrice.toFixed(2) : '-'}</span>
+                                {v.barcode && (
+                                  <><span>Barcode:</span> <span className="font-medium text-slate-700 dark:text-slate-200">{v.barcode}</span></>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+                </React.Fragment>
               ))
             )}
           </TableBody>
@@ -238,11 +298,11 @@ export default function ProductClient({
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Purchase Price *</label>
+                  <label className="text-sm font-medium">Purchase Price per base unit *</label>
                   <Input name="purchasePrice" type="number" step="any" required defaultValue={editingProduct.purchasePrice} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Selling Price *</label>
+                  <label className="text-sm font-medium">Selling Price per base unit *</label>
                   <Input name="sellingPrice" type="number" step="any" required defaultValue={editingProduct.sellingPrice} />
                 </div>
                 <div className="space-y-2">
@@ -253,7 +313,7 @@ export default function ProductClient({
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Unit *</label>
+                  <label className="text-sm font-medium">Base Unit *</label>
                   <select name="unit" required defaultValue={editingProduct.unit} className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm">
                     <option value="pcs">Pieces (pcs)</option>
                     <option value="kg">Kilograms (kg)</option>
@@ -273,15 +333,72 @@ export default function ProductClient({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Bulk Pkg Name (e.g. Katta, Box)</label>
-                  <Input name="bulkUnitName" defaultValue={editingProduct.bulkUnitName || ""} placeholder="Leave blank if none" />
+              {/* Product Variants (Units of Measure) */}
+              <div className="md:col-span-1 border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Other Sizes / Variants</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={addEditVariant}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Variant
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Items/Weight per Bulk</label>
-                  <Input name="bulkConversionRate" type="number" step="any" defaultValue={editingProduct.bulkConversionRate || ""} placeholder="e.g. 30" />
-                </div>
+
+                {editingVariants.length > 0 && (
+                  <div className="space-y-4">
+                    {editingVariants.map((v, i) => (
+                      <div key={i} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end p-4 border rounded-md relative group bg-slate-50 dark:bg-slate-800/50">
+                        <div className="grid gap-2 md:col-span-2">
+                          <label className="text-xs font-medium">Unit Name</label>
+                          <Input 
+                            required 
+                            placeholder="e.g., 5kg Packet, Katta" 
+                            value={v.unitName} 
+                            onChange={(e) => updateEditVariant(i, "unitName", e.target.value)} 
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium">Units Inside</label>
+                          <Input 
+                            type="number" step="any" required 
+                            placeholder="e.g., 5" 
+                            value={v.conversionRate} 
+                            onChange={(e) => updateEditVariant(i, "conversionRate", e.target.value)} 
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium">Purchase Price</label>
+                          <Input 
+                            type="number" step="0.01" 
+                            placeholder="₹ 0.00" 
+                            value={v.purchasePrice ?? ""} 
+                            onChange={(e) => updateEditVariant(i, "purchasePrice", e.target.value)} 
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium">Selling Price</label>
+                          <Input 
+                            type="number" step="0.01" required 
+                            placeholder="₹ 0.00" 
+                            value={v.sellingPrice} 
+                            onChange={(e) => updateEditVariant(i, "sellingPrice", e.target.value)} 
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium">Barcode (Opt)</label>
+                          <Input 
+                            placeholder="Scan..." 
+                            value={v.barcode ?? ""} 
+                            onChange={(e) => updateEditVariant(i, "barcode", e.target.value)} 
+                          />
+                        </div>
+                        <div className="pb-1">
+                          <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => removeEditVariant(i)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4">
