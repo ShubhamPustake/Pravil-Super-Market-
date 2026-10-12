@@ -62,7 +62,8 @@ export default function LoginPage() {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="john@example.com"
+                  placeholder="admin@pravilmart.com"
+                  defaultValue="admin@pravilmart.com"
                   required
                   className="h-12 bg-slate-50 border-slate-200 focus-visible:ring-green-500 rounded-xl"
                 />
@@ -78,6 +79,8 @@ export default function LoginPage() {
                   id="password"
                   name="password"
                   type="password"
+                  placeholder="Admin@123"
+                  defaultValue="Admin@123"
                   required
                   className="h-12 bg-slate-50 border-slate-200 focus-visible:ring-green-500 rounded-xl"
                 />
@@ -88,6 +91,10 @@ export default function LoginPage() {
               {isPending ? "Signing in..." : "Sign in"}
             </Button>
           </form>
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+            <span className="font-semibold text-slate-700">Demo Admin:</span> admin@pravilmart.com &bull; <span className="font-semibold text-slate-700">Password:</span> Admin@123
+          </div>
 
 
         </div>
